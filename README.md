@@ -13,10 +13,11 @@ A full-stack web application for conducting online MCQ tests and skill evaluatio
 |---|---|
 | Frontend | React 18 + Vite |
 | Routing | React Router v6 |
-| Backend | Node.js + Express |
+| Backend | Java 17 + Spring Boot 3.2.2 |
+| ORM | Spring Data JPA (Hibernate) |
 | Database | PostgreSQL (Neon hosted) |
-| Auth | JWT (jsonwebtoken) |
-| Password | bcrypt |
+| Auth | JWT (jjwt 0.11.5) + Spring Security |
+| Password | BCryptPasswordEncoder |
 | Deployment | Netlify (frontend) + Render (backend) |
 
 ---
@@ -75,28 +76,35 @@ A full-stack web application for conducting online MCQ tests and skill evaluatio
 
 ```
 SMI-P/
-├── backend/
-│   ├── src/
-│   │   ├── data/
-│   │   │   └── seedQuestions.js        # 50 MCQs across 5 categories
-│   │   ├── middleware/
-│   │   │   └── auth.js                 # requireAuth + requireAdmin JWT middleware
-│   │   ├── migrations/
-│   │   │   ├── 001_init.sql            # users, questions, results tables
-│   │   │   ├── 002_add_difficulty.sql  # adds difficulty column to questions
-│   │   │   └── runMigrations.js        # runs all .sql files in order
-│   │   ├── routes/
-│   │   │   ├── auth.js                 # POST /register, POST /login
-│   │   │   ├── questions.js            # GET /questions/:category
-│   │   │   ├── results.js              # POST /submit, GET /, GET /analytics
-│   │   │   └── admin.js                # CRUD questions + GET all results
-│   │   ├── scripts/
-│   │   │   └── seed.js                 # seeds DB with 50 questions
-│   │   ├── db.js                       # PostgreSQL pool (pg)
-│   │   └── index.js                    # Express app entry point
-│   ├── .env                            # PORT, DATABASE_URL, JWT_SECRET
-│   ├── .env.example
-│   └── package.json
+├── backend-springboot/
+│   ├── src/main/java/com/smartinterview/
+│   │   ├── config/
+│   │   │   ├── DataSourceConfig.java   # Parses DATABASE_URL for PostgreSQL
+│   │   │   └── SecurityConfig.java     # Spring Security + CORS config
+│   │   ├── controller/
+│   │   │   ├── AuthController.java     # POST /register, POST /login
+│   │   │   ├── QuestionController.java # GET /questions/:category
+│   │   │   ├── ResultController.java   # POST /submit, GET /, GET /analytics
+│   │   │   ├── AdminController.java    # CRUD questions + GET all results
+│   │   │   └── HealthController.java   # GET /health
+│   │   ├── model/
+│   │   │   ├── User.java               # users entity
+│   │   │   ├── Question.java           # questions entity
+│   │   │   ├── ResultRecord.java       # results entity
+│   │   │   └── JsonListConverter.java  # JSONB options converter
+│   │   ├── repository/
+│   │   │   ├── UserRepository.java
+│   │   │   ├── QuestionRepository.java
+│   │   │   └── ResultRepository.java
+│   │   ├── security/
+│   │   │   ├── JwtTokenProvider.java   # JWT generation & validation
+│   │   │   └── JwtAuthenticationFilter.java
+│   │   ├── service/
+│   │   │   └── SeedDataService.java    # Seeds 50 questions on startup
+│   │   └── SmartInterviewApplication.java
+│   ├── src/main/resources/
+│   │   └── application.properties      # server.port, jpa, jwt config
+│   └── pom.xml
 │
 ├── frontend/
 │   └── vite-project/
@@ -131,37 +139,33 @@ SMI-P/
 ## 🚀 Local Setup
 
 ### Prerequisites
-- Node.js v14+
+- Java 17+
+- Maven 3.6+
 - PostgreSQL (or use Neon hosted DB)
 
 ### 1. Backend
 
 ```bash
-cd backend
-npm install
+cd backend-springboot
 ```
 
-Create `.env`:
+Set environment variables:
 ```
-PORT=5000
 DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 JWT_SECRET=your_secret_key
 ```
 
-Run migrations:
+Build and run:
 ```bash
-npm run migrate
+mvn spring-boot:run
 ```
 
-Seed questions:
+Or run the pre-built jar:
 ```bash
-node src/scripts/seed.js
+java -jar target/backend-0.0.1-SNAPSHOT.jar
 ```
 
-Start server:
-```bash
-npm run dev
-```
+> Tables are auto-created via `spring.jpa.hibernate.ddl-auto=update`. Questions are seeded automatically on first startup via `SeedDataService`.
 
 Backend runs at: **http://localhost:5000**
 
@@ -188,10 +192,10 @@ Frontend runs at: **http://localhost:5173**
 1. Push to GitHub
 2. Go to https://render.com → **New Web Service** → connect repo
 3. Set:
-   - **Root directory**: `backend`
-   - **Build command**: `npm install`
-   - **Start command**: `node src/index.js`
-4. Add environment variables: `DATABASE_URL`, `JWT_SECRET`, `PORT`
+   - **Root directory**: `backend-springboot`
+   - **Build command**: `mvn clean package -DskipTests`
+   - **Start command**: `java -jar target/backend-0.0.1-SNAPSHOT.jar`
+4. Add environment variables: `DATABASE_URL`, `JWT_SECRET`
 5. Deploy
 
 ### Frontend → Netlify
@@ -262,7 +266,7 @@ Frontend runs at: **http://localhost:5173**
 
 ## 📦 Pre-loaded Question Bank
 
-50 questions across 5 categories (10 each) in `seedQuestions.js`:
+50 questions across 5 categories (10 each) seeded automatically via `SeedDataService.java`:
 
 | Category | Topics Covered |
 |---|---|
